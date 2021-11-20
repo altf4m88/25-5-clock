@@ -1,0 +1,15 @@
+.time{
+    font-size: 4rem;
+}
+
+.time-label{
+    font-size: 1.4rem;
+}
+
+.btn-left{
+    border-radius: 25px 0px 0px 25px;
+}
+
+.btn-right{
+    border-radius: 0px 25px 25px 0px;
+}
