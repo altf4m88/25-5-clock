@@ -1,5 +1,22 @@
 import React from 'react';
-import AccurateInterval from 'accurate-interval';
+
+const accurateInterval = function (fn, time) {
+    var cancel, nextAt, timeout, wrapper;
+    nextAt = new Date().getTime() + time;
+    timeout = null;
+    wrapper = function () {
+        nextAt += time;
+        timeout = setTimeout(wrapper, nextAt - new Date().getTime());
+        return fn();
+    };
+    cancel = function () {
+        return clearTimeout(timeout);
+    };
+    timeout = setTimeout(wrapper, nextAt - new Date().getTime());
+    return {
+        cancel: cancel 
+    };
+};
 
 class Timer extends React.Component{
     constructor(props){
@@ -10,10 +27,15 @@ class Timer extends React.Component{
             timerOn : false,
             type : 'SESSION',
             timeInSecond : 1500,
+            intervalState: ''
         };
         this.incrementLength = this.incrementLength.bind(this);
         this.decrementLength = this.decrementLength.bind(this);
         this.clockify = this.clockify.bind(this);
+        this.typeControl = this.typeControl.bind(this);
+        this.decrementTimer = this.decrementTimer.bind(this);
+        this.countdown = this.countdown.bind(this);
+        this.timerControl = this.timerControl.bind(this);
     }
 
     incrementLength = (type) => {
@@ -66,6 +88,46 @@ class Timer extends React.Component{
         }
     }
 
+    decrementTimer = () => {
+        let time = this.state.timeInSecond - 1;
+        this.setState({timeInSecond : time});
+    }
+
+    typeControl = () => {
+        let timer = this.state.timeInSecond;
+        this.alarm(timer);
+        if (timer < 0) {
+            if (this.state.intervalState) {
+                this.state.intervalState.cancel();
+            }
+            if (this.state.type !== 'SESSION') {
+                this.countdown();
+                this.setState({
+                    timeInSecond : this.state.sessionLength * 60,
+                    type : 'SESSION'
+                });
+            } else {
+                this.countdown();
+                this.setState({
+                    timeInSecond : this.state.breakLength * 60,
+                    type : 'BREAK'
+                });
+            }
+        }
+    }
+
+    timerControl() {
+        if (!this.state.timerOn) {
+            this.countdown();
+            this.setState({ timerOn: true });
+        } else {
+            this.setState({ timerOn: false });
+            if (this.state.intervalState) {
+                this.state.intervalState.cancel();
+            }
+        }
+    }
+
     resetState = () => {
         this.setState({
             sessionLength : 25,
@@ -73,7 +135,16 @@ class Timer extends React.Component{
             timerOn : false,
             type : 'SESSION',
             timeInSecond : 1500,
+            intervalState: ''
         });
+
+        if (this.state.intervalState) {
+            this.state.intervalState.cancel();
+        }
+
+        let audio = document.querySelector('#beep');
+        audio.pause();
+        audio.currentTime = 0;
     }
 
     clockify = () => {
@@ -84,9 +155,28 @@ class Timer extends React.Component{
         return minutes + ':' + seconds;
     }
 
+    countdown = () => {
+        this.setState({
+            intervalState : accurateInterval(() => {
+                this.decrementTimer();
+                this.typeControl();
+            }, 1000)
+        });
+    }
+
+    alarm = (time) => {
+        let audio = document.querySelector('#beep');
+        if (time < 0) {
+            audio.play()
+        }
+    }
+
     render(){
         return (
             <div className="d-flex justify-content-center align-items-center mt-5 flex-column w-100">
+                <audio className="clip" id='beep' key='alarm'>
+                    <source src="audio/radio-moskau-interval.mp3" type="audio/mpeg"/>
+                </audio>
                 <h1 className="mb-3">25 + 5 Clock</h1>
                 <div className="d-flex justify-content-around w-50 mb-2">
                     <div className="d-flex flex-column align-items-center">
@@ -120,14 +210,14 @@ class Timer extends React.Component{
                 </div>
                 <div className="card text-white bg-secondary mb-3 w-25 mt-4 text-center">
                     <div className="card-header">
-                        <h2 id="timer-label">Session</h2>
+                        <h2 id="timer-label">{this.state.type}</h2>
                     </div>
                     <div className="card-body">
                         <p className="card-title time" id="time-left">{this.clockify()}</p>
                     </div>
                 </div>
                 <div className="d-flex">
-                    <button id="start_stop" className="btn btn-lg btn-success btn-left">
+                    <button onClick={this.timerControl} id="start_stop" className="btn btn-lg btn-success btn-left">
                         <i className="fas fa-play"></i>
                     </button>
                     <button onClick={this.resetState} id="reset" className="btn btn-lg btn-warning btn-right">
